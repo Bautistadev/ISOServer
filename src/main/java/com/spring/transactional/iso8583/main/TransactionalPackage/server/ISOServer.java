@@ -50,9 +50,10 @@ public class ISOServer implements InitializingBean, DisposableBean {
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
     private static final String SLINE = "─".repeat(64);
 
-    private final int port;
-    private final ISOPackager packager;
-    private final ISORequestListener listener;
+    private int port;
+    private ISOPackager packager;
+    private ISORequestListener listener;
+    private String name;
 
     private ServerSocket serverSocket;
     private ExecutorService executor;
@@ -62,7 +63,7 @@ public class ISOServer implements InitializingBean, DisposableBean {
     private final AtomicBoolean  running       = new AtomicBoolean(false);
     private final AtomicInteger  activeClients = new AtomicInteger(0);
 
-    private int threadPoolSize = 10;
+    private int threadPoolSize;
 
     // ✅ Sin timeout de lectura — la conexión se mantiene viva indefinidamente
     //    Solo se cierra si el cliente cierra el socket (EOF) o hay un error real
@@ -71,17 +72,33 @@ public class ISOServer implements InitializingBean, DisposableBean {
     // Intervalo para verificar que el socket sigue vivo (TCP keepalive a nivel app)
     private static final int KEEPALIVE_CHECK_MS = 5_000;
 
+    //DEFAULTS
     public ISOServer(int port, ISOPackager packager, ISORequestListener listener) {
-        this(port, packager, listener, FramingStrategy.HEADER_2);
+        this(port, packager, listener, FramingStrategy.HEADER_2,10);
     }
 
     public ISOServer(int port, ISOPackager packager,
-                     ISORequestListener listener, FramingStrategy framing) {
+                     ISORequestListener listener, FramingStrategy framing,int threadPoolSize) {
         this.port     = port;
         this.packager = packager;
         this.listener = listener;
-        this.framing  = framing; // Agregar campo: private final FramingStrategy framing;
+        this.framing  = framing;// Agregar campo: private final FramingStrategy framing;
+        this.threadPoolSize = threadPoolSize;
+        this.name = "iso-server-"+port;
     }
+
+    public ISOServer(int port, ISOPackager packager,
+                     ISORequestListener listener, FramingStrategy framing,int threadPoolSize,String name) {
+        this.port     = port;
+        this.packager = packager;
+        this.listener = listener;
+        this.framing  = framing;
+        this.threadPoolSize = threadPoolSize;
+        this.name     = name; // default si no se setea
+    }
+
+    public String getName()        { return name; }
+    public void   setName(String n){ this.name = n; }
 
     @Override
     public void afterPropertiesSet() throws Exception { start(); }
@@ -96,7 +113,7 @@ public class ISOServer implements InitializingBean, DisposableBean {
         t.setDaemon(true);
         t.start();
 
-        ISOLogger.logServerStart(log, port, threadPoolSize);
+        ISOLogger.logServerStart(log, port, threadPoolSize,framing,name);
     }
 
     @Override
@@ -156,6 +173,7 @@ public class ISOServer implements InitializingBean, DisposableBean {
         log.info("");
         log.info("  ┌{}┐", SLINE);
         log.info("  │  ⟶  NUEVA CONEXIÓN ACEPTADA");
+        log.info("  │  {}", String.format("%-24s  :%s",    "Canal:", name));
         log.info("  │  {}", String.format("%-24s  :%d",    "Puerto servidor:", port));
         log.info("  │  {}", String.format("%-24s  %s",     "Cliente origen:",  remote));
         log.info("  │  {}", String.format("%-24s  %d",     "Clientes activos:", clientNum));
@@ -225,6 +243,7 @@ public class ISOServer implements InitializingBean, DisposableBean {
             log.info("");
             log.info("  ┌{}┐", SLINE);
             log.info("  │  ✕  CONEXIÓN CERRADA");
+            log.info("  │  {}", String.format("%-24s  :%s",   "Canal:",   name));
             log.info("  │  {}", String.format("%-24s  :%d",   "Puerto servidor:",   port));
             log.info("  │  {}", String.format("%-24s  %s",    "Cliente origen:",    remote));
             log.info("  │  {}", String.format("%-24s  %s",    "Motivo cierre:",     closeReason));
