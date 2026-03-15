@@ -1,56 +1,33 @@
-package com.spring.transactional.iso8583.main.Application.configuration;
+package com.spring.transactional.iso8583.main.Application.listeners;
 
-import com.spring.transactional.iso8583.main.TransactionalPackage.channel.FramingStrategy;
 import com.spring.transactional.iso8583.main.TransactionalPackage.logs.ISOLogger;
 import com.spring.transactional.iso8583.main.TransactionalPackage.message.ISOMsg;
-import com.spring.transactional.iso8583.main.TransactionalPackage.packager.Generic87Packager;
-import com.spring.transactional.iso8583.main.TransactionalPackage.packager.GenericPackager;
-import com.spring.transactional.iso8583.main.TransactionalPackage.packager.ISOPackager;
-import com.spring.transactional.iso8583.main.TransactionalPackage.server.ISOServer;
+import com.spring.transactional.iso8583.main.TransactionalPackage.server.ISORequestListener;
 import com.spring.transactional.iso8583.main.TransactionalPackage.util.ISOUtils;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.stereotype.Component;
 
-@Configuration
+
 @Slf4j
-public class IsoServerConfig {
-    /**
-     * Packager compartido por ambos servidores.
-     * Un solo bean alcanza porque ISOPackager no tiene estado mutable.
-     */
-    @Bean
-    public ISOPackager isoPackager() {
-        return new Generic87Packager();
-    }
-    @Bean
-    public ISOPackager genericIsoPackager() {
-        return new GenericPackager(); // en lugar de Generic87Packager
-    }
+@AllArgsConstructor
+public class FiservListener implements ISORequestListener {
 
-    /**
-     * Servidor ISO en el puerto 8081.
-     * Recibe solicitudes de autorización (0200) y responde con aprobación (0210).
-     */
-    @Bean(initMethod = "start", destroyMethod = "stop")
-    public ISOServer isoServer8081() {
-        return new ISOServer(8081, genericIsoPackager(), request -> {
-            long inicio = System.currentTimeMillis();
-            ISOLogger.logIncoming(log, request, "Puerto 8081");
+    private int port;
 
-            ISOMsg response = procesarMensaje(request);
+    @Override
+    public ISOMsg onRequest(ISOMsg request) {
+        long inicio = System.currentTimeMillis();
+        ISOLogger.logIncoming(log, request, "Puerto "+port);
 
-            ISOLogger.logOutgoing(log, response, "Puerto 8081 → Cliente");
-            ISOLogger.logResult(log, request, response, System.currentTimeMillis() - inicio);
+        ISOMsg response = procesarMensaje(request);
 
-            return response;
-        }, FramingStrategy.HEADER_2); //--> HEADER DEL MENSAJE CAMBIAR DEPENDIENDO DEL TIPO DE ISO
+        ISOLogger.logOutgoing(log, response, "Puerto "+port+" → Cliente");
+        ISOLogger.logResult(log, request, response, System.currentTimeMillis() - inicio);
+
+        return response;
     }
 
-    /**
-     * Enruta el mensaje al handler correcto según el MTI.
-     */
     private ISOMsg procesarMensaje(ISOMsg request) {
         String mti = request.getMTI();
         if (mti == null) {
@@ -172,5 +149,4 @@ public class IsoServerConfig {
         response.set(39, "12"); // Transacción inválida
         return response;
     }
-
 }

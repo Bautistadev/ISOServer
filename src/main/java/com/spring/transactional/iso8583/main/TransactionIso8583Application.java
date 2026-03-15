@@ -24,7 +24,6 @@ public class TransactionIso8583Application implements CommandLineRunner {
 
 	@Override
 	public void run(String... args) throws Exception {
-		log.info("SERVIDORES ISO CORRIENDO EN PUERTO 8081");
 		Thread.currentThread().join();
 	}
 }

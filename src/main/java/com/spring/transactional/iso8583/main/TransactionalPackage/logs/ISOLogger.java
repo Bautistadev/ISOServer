@@ -1,5 +1,6 @@
 package com.spring.transactional.iso8583.main.TransactionalPackage.logs;
 
+import com.spring.transactional.iso8583.main.TransactionalPackage.channel.FramingStrategy;
 import com.spring.transactional.iso8583.main.TransactionalPackage.message.ISOMsg;
 import com.spring.transactional.iso8583.main.TransactionalPackage.util.ISOUtils;
 import org.slf4j.Logger;
@@ -93,33 +94,42 @@ public final class ISOLogger {
 
     // ── Servidor iniciado ─────────────────────────────────────────────────
 
-    public static void logServerStart(Logger log, int port, int threadPoolSize) {
+    public static void logServerStart(Logger log, int port, int threadPoolSize,FramingStrategy framingStrategy,String name) {
         log.info("");
         log.info("  ╔{}╗", DLINE);
         log.info("  ║  ●  SERVIDOR ISO 8583 INICIADO");
         log.info("  ╠{}╣", DLINE);
+        log.info("  ║  {}", fila("Identificador",       ":" + name));
         log.info("  ║  {}", fila("Puerto",       ":" + port));
         log.info("  ║  {}", fila("Thread Pool",  threadPoolSize + " hilos"));
         log.info("  ║  {}", fila("Timestamp",    now()));
-        log.info("  ║  {}", fila("Transporte",   "TCP — header 4 bytes big-endian"));
+        log.info("  ║  {}", fila("Transporte",  describeFraming(framingStrategy)));
         log.info("  ╚{}╝", DLINE);
         log.info("");
     }
 
+    private static String describeFraming(FramingStrategy framing) {
+        return switch (framing) {
+            case HEADER_2 -> "TCP — header 2 bytes big-endian";
+            case HEADER_4 -> "TCP — header 4 bytes big-endian";
+            case RAW      -> "TCP — sin header (RAW)";
+        };
+    }
+
     // ── Nueva conexión ────────────────────────────────────────────────────
 
-    public static void logNewConnection(Logger log, int port, String remote) {
+    public static void logNewConnection(Logger log, int port, String remote,String channelName) {
         log.info("  ┌{}┐", SLINE);
-        log.info("  │  ⟶  NUEVA CONEXIÓN  │  Puerto: {}  │  Origen: {}", port, remote);
+        log.info("  │  ⟶  NUEVA CONEXIÓN  │  Puerto: {}  │  Origen: {} | Channel Name: {}", port, remote,channelName);
         log.info("  └{}┘", SLINE);
     }
 
     // ── Conexión cerrada ──────────────────────────────────────────────────
 
-    public static void logConnectionClosed(Logger log, int port, String remote, long sessionMs) {
+    public static void logConnectionClosed(Logger log, int port, String remote, long sessionMs,String channelName) {
         log.info("  ┌{}┐", SLINE);
-        log.info("  │  ✕  CONEXIÓN CERRADA  │  Puerto: {}  │  Origen: {}  │  Duración: {} ms",
-                port, remote, sessionMs);
+        log.info("  │  ✕  CONEXIÓN CERRADA  │  Puerto: {}  │  Origen: {}  │  Duración: {} ms | Channel Name: {}",
+                port, remote, sessionMs,channelName);
         log.info("  └{}┘", SLINE);
     }
 
