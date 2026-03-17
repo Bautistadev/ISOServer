@@ -1,45 +1,33 @@
-package com.spring.transactional.iso8583.main.Application.configuration.servers;
+package com.spring.transactional.iso8583.main.Application.participants;
 
-import com.spring.transactional.iso8583.main.Application.listeners.CabalListener;
-import com.spring.transactional.iso8583.main.TransactionalPackage.channel.FramingStrategy;
-import com.spring.transactional.iso8583.main.TransactionalPackage.logs.ISOLogger;
 import com.spring.transactional.iso8583.main.TransactionalPackage.message.ISOMsg;
-import com.spring.transactional.iso8583.main.TransactionalPackage.packager.ISOPackager;
-import com.spring.transactional.iso8583.main.TransactionalPackage.server.ISORequestListener;
-import com.spring.transactional.iso8583.main.TransactionalPackage.server.ISOServer;
+import com.spring.transactional.iso8583.main.TransactionalPackage.transaction.Context;
+import com.spring.transactional.iso8583.main.TransactionalPackage.transaction.TransactionParticipant;
 import com.spring.transactional.iso8583.main.TransactionalPackage.util.ISOUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
-@Configuration
 @Slf4j
-public class IsoCabalServerConfig {
+public class echoParticipant implements TransactionParticipant {
 
-    @Value("${iso.servers.cabal.port}")
-    private int serverPort;
+    @Override
+    public int prepare(long id, Context context) {
 
-    @Value("${iso.servers.cabal.framing}")
-    private String serverFraming;
+        log.info("MTI DENTRO DEL TRANSACTION MANAGER - " + context.getRequest().getMTI());
 
-    @Value("${iso.servers.cabal.thread-pool-size}")
-    private int threadPoolSize;
+        ISOMsg request = context.getRequest();
 
-    @Value("${iso.servers.cabal.name}")
-    private String name;
-
-    @Bean
-    public ISORequestListener cabalListener(){
-        return new CabalListener(8082);
+        ISOMsg response = null;
+        if (request.isRequest() || request.getMTI().equals("0800")) {
+            response = request.createResponse();
+            response.set(70,context.getString("70"));
+            response.set(39,"00");
+        }else{
+            return ABORTED;
+        }
+        context.put(Context.RESPONSE, response);
+        return PREPARED | READONLY;
     }
 
-    @Bean(initMethod = "start", destroyMethod = "stop")
-    public ISOServer isoServercabal(@Qualifier("isoPackager")  ISOPackager packager ,@Qualifier("cabalListener") ISORequestListener isoRequestListener) {
-        FramingStrategy strategy = FramingStrategy.valueOf(serverFraming.toUpperCase());
-        return new ISOServer(serverPort, packager, isoRequestListener, strategy,threadPoolSize,name); //--> HEADER DEL MENSAJE CAMBIAR DEPENDIENDO DEL TIPO DE ISO
-    }
 
     /**
      * Enruta el mensaje al handler correcto según el MTI.
@@ -72,7 +60,7 @@ public class IsoCabalServerConfig {
 
         ISOMsg response = request.createResponse(); // → 0110
         response.set(38, "PREA01");   // Código de pre-autorización
-        response.set(39, "00");       // Aprobado
+        response.set(39, "96");       // Aprobado
         if (!response.hasField(37)) response.set(37, ISOUtils.generateRRN());
         return response;
     }
